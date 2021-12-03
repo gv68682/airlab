@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real Time Airplane Tracker</title>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v1.11.0/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v1.11.0/mapbox-gl.css" rel="stylesheet" />  
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+      
+      .map-overlay {
+        position: absolute;
+        left: 0;
+        padding: 10px;
+      } 
+      .marker {
+        background-image: url('plane_transparent.png');
+        background-size: cover;
+        width: 50px;
+        height: 50px;       
+        cursor: pointer;
+    }     
+      </style>
+
+</head>
+<body>
+    <div id="map" ></div>  <!-- style="width:1024px; height:768px" -->
+</body>
+
+<script> 
+    var lat;
+    var lon;
+    var map;
+    var flightNum;
+
+    //Plane data 
+    async function getFlightData(){
+        var url = 'https://airlabs.co/api/v9/flights?api_key= YOUR-APIKEY';	
+        var response = await fetch(url);
+        var json     = await response.json();
+        console.log(json.response[2])
+        flightNum = json.response[2].flight_number
+        console.log(flightNum)
+        lat = json.response[2].lat
+        lon = json.response[2].lng
+        for(let i =0; i<json.response.length; i++){
+                let flightNn = json.response[i].flight_number
+                console.log(flightNn)
+                if(flightNn === flightNum){
+                    lat = json.response[i].lat
+                    lon = json.response[i].lng
+                    console.log(lat)
+                    console.log(lon)
+                    console.log(typeof(lon))
+                    break;
+                }
+        }
+        return json.response;
+    }
+
+    async function createMap() {
+        await getFlightData()
+        mapboxgl.accessToken = 'YOUR TOKEN FROM MAPBOX';
+        var markers = [];
+        map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/satellite-v9', //mapbox://styles/mapbox/satellite-v9  mapbox://styles/mapbox/satellite-streets-v11
+            center: [lon, lat],
+            zoom:3
+        });
+        console.log(map)
+        await createMarker(lon, lat)
+    }
+
+    async function createMarker(){
+   
+        const geojson = {
+            'type': 'FeatureCollection',
+            'features': [
+                {
+                    'type': 'Feature',
+                    'geometry': {
+                        'type': 'Point',
+                        'coordinates': [lon, lat]
+                    },
+                    'properties': {
+                        'title': 'Mapbox'
+                        //'description': 'San Francisco, California'
+                    }
+                }
+            ]
+        };
+
+        for (const feature of geojson.features) {
+            // create a HTML element for each feature
+            const el = document.createElement('div');
+            el.className = 'marker';
+            
+            // make a marker for each feature and add it to the map
+            new mapboxgl.Marker(el)
+            .setLngLat(feature.geometry.coordinates)
+            .addTo(map)
+        }
+    }
+
+    async function update() {
+        await getFlightData()
+        await createMarker()
+    }
+
+    createMap()
+    setInterval(() => {
+        update()
+    }, 20000)
+    </script>
+</html>
