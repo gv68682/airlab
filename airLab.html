@@ -7,63 +7,59 @@
     <title>Real Time Airplane Tracker</title>
     <script src="https://api.mapbox.com/mapbox-gl-js/v1.11.0/mapbox-gl.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v1.11.0/mapbox-gl.css" rel="stylesheet" />  
-    <style>
-        body { margin: 0; padding: 0; }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
-      
-      .map-overlay {
-        position: absolute;
-        left: 0;
-        padding: 10px;
-      } 
-      .marker {
-        background-image: url('plane_transparent.png');
-        background-size: cover;
-        width: 50px;
-        height: 50px;       
-        cursor: pointer;
-    }     
-      </style>
+    <link href="airlab.css" rel="stylesheet" /> 
+   
 
 </head>
 <body>
+    <h1> Real Time Flight Tracker</h1>
+    <p> Flight number will be a combination of airline+number which can be found in the itinerary</p>
+    <div>
+        <input type = 'text' id = 'flightnumber-input' placeholder="Enter flight number here">
+        <button id= 'find-flightpath' onclick="update()">Find Flight Path</button><br>
+        <button onclick="document.getElementById('flightnumber-input').value = ''">Clear</button>
+    </div>
     <div id="map" ></div>  <!-- style="width:1024px; height:768px" -->
 </body>
 
 <script> 
-    var lat;
-    var lon;
+    var lat; //42.365554;
+    var lon; //-71.104081;
     var map;
-    var flightNum;
+    let mapLoadCounter=0;
+    var valid = false;
+    // var regex = /^[a-zA-Z0-9!@#\$%\^\&*\)\(+=._-]{6,}$/g
 
     //Plane data 
     async function getFlightData(){
-        var url = 'https://airlabs.co/api/v9/flights?api_key= YOUR-APIKEY';	
+        searchFlight = document.getElementById('flightnumber-input').value
+
+        var url = 'https://airlabs.co/api/v9/flights?api_key= YOUR API KEY';	
         var response = await fetch(url);
         var json     = await response.json();
-        console.log(json.response[2])
-        flightNum = json.response[2].flight_number
-        console.log(flightNum)
-        lat = json.response[2].lat
-        lon = json.response[2].lng
-        for(let i =0; i<json.response.length; i++){
-                let flightNn = json.response[i].flight_number
-                console.log(flightNn)
-                if(flightNn === flightNum){
-                    lat = json.response[i].lat
-                    lon = json.response[i].lng
-                    console.log(lat)
-                    console.log(lon)
-                    console.log(typeof(lon))
-                    break;
-                }
+        console.log(json)
+        let filteredFlights = json.response.filter(elem => elem.flight_iata === searchFlight.toLowerCase() || elem.flight_iata === searchFlight.toUpperCase())
+        //ai468  or SU400 or EK9222 flight_iata, flight_icao
+        if (filteredFlights.length === 0) {
+            alert('Invalid flight or flight is not in the air!! EX: RYR44, ai468 , SU400')
+            valid = false;
+        } else {
+            valid = true
+            let flight = filteredFlights[0]
+            lat = flight.lat
+            lon = flight.lng
+            if (mapLoadCounter === 0) {
+                mapLoadCounter = 2
+                createMap()
+            }
+            return flight;
         }
-        return json.response;
+       // return json.response;
     }
 
     async function createMap() {
-        await getFlightData()
-        mapboxgl.accessToken = 'YOUR TOKEN FROM MAPBOX';
+       // await getFlightData()
+        mapboxgl.accessToken = 'YOUR TOKEN';
         var markers = [];
         map = new mapboxgl.Map({
             container: 'map',
@@ -71,12 +67,10 @@
             center: [lon, lat],
             zoom:3
         });
-        console.log(map)
         await createMarker(lon, lat)
     }
 
-    async function createMarker(){
-   
+    async function createMarker(){ 
         const geojson = {
             'type': 'FeatureCollection',
             'features': [
@@ -93,7 +87,6 @@
                 }
             ]
         };
-
         for (const feature of geojson.features) {
             // create a HTML element for each feature
             const el = document.createElement('div');
@@ -106,14 +99,15 @@
         }
     }
 
-    async function update() {
+    async function update() {     
         await getFlightData()
         await createMarker()
     }
-
-    createMap()
+   // createMap()
     setInterval(() => {
-        update()
-    }, 20000)
+        if (valid) {
+            update()       
+        }
+    }, 30000)
     </script>
 </html>
